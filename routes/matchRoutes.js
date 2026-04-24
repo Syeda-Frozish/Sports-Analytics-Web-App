@@ -1,44 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const Match = require('../models/Match');
 
+const { getCurrentMatches } = require('../services/cricApi');
+const formatMatch = require('../utils/formatMatch');
 
-// ✅ CREATE (Insert dummy data)
-router.post('/add-dummy', async (req, res) => {
+// 🔴 Live matches
+router.get('/live', async (req, res) => {
   try {
-    const match = new Match({
-      teamA: "Pakistan",
-      teamB: "India",
-      date: new Date(),
-      score: "280/6 vs 275/9"
+    const matches = await getCurrentMatches();
+
+    const formattedMatches = matches.map(formatMatch);
+
+    res.json({
+      count: formattedMatches.length,
+      matches: formattedMatches,
     });
-
-    const saved = await match.save();
-    res.json(saved);
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// ✅ READ (Get all matches)
-router.get('/', async (req, res) => {
-  try {
-    const matches = await Match.find();
-    res.json(matches);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// ✅ DELETE (Delete ALL matches — for testing)
-router.delete('/delete-all', async (req, res) => {
-  try {
-    await Match.deleteMany({});
-    res.json({ message: "All matches deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message,
+    });
   }
 });
 
