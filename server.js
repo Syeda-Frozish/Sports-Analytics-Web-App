@@ -17,7 +17,7 @@ app.use(express.json());
 app.use('/api/matches', matchRoutes);
 
 // Debug routes (optional - for development/troubleshooting)
-// app.use('/api/debug', debugRoutes);
+app.use('/api/debug', debugRoutes);
 
 app.get('/', (req, res) => {
   res.send('Sports Analytics API is running...');

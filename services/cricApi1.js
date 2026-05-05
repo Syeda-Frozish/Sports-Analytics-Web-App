@@ -13,7 +13,7 @@ const getCurrentMatches = async () => {
       throw new Error('CRICKET_API_KEY environment variable is not set');
     }
 
-    console.log('📡 Calling CricAPI endpoint...');
+    console.log('Calling CricAPI endpoint...');
     const res = await axios.get(`${BASE_URL}/currentMatches`, {
       params: {
         apikey: API_KEY,
@@ -21,7 +21,7 @@ const getCurrentMatches = async () => {
       },
     });
 
-    console.log('✅ CricAPI response received');
+    console.log('CricAPI response received');
     console.log('Response keys:', Object.keys(res.data));
     console.log('Has data.data?', !!res.data?.data);
     console.log('Data type:', typeof res.data?.data);
@@ -29,30 +29,30 @@ const getCurrentMatches = async () => {
 
     // Check what structure the API returned
     if (!res.data) {
-      console.error('❌ No data in response');
+      console.error('No data in response');
       return [];
     }
 
     if (res.data?.data && Array.isArray(res.data.data)) {
-      console.log(`✅ Found ${res.data.data.length} matches`);
+      console.log(`Found ${res.data.data.length} matches`);
       return res.data.data;
     }
 
     if (res.data?.matches && Array.isArray(res.data.matches)) {
-      console.log(`✅ Found ${res.data.matches.length} matches (in matches field)`);
+      console.log(`Found ${res.data.matches.length} matches (in matches field)`);
       return res.data.matches;
     }
 
     if (Array.isArray(res.data)) {
-      console.log(`✅ Found ${res.data.length} matches (direct array)`);
+      console.log(`Found ${res.data.length} matches (direct array)`);
       return res.data;
     }
 
-    console.error('❌ Unexpected response structure:');
+    console.error('Unexpected response structure:');
     console.error(JSON.stringify(res.data, null, 2));
     return [];
   } catch (error) {
-    console.error('❌ CricAPI Error:', error.message);
+    console.error('CricAPI Error:', error.message);
     if (error.response) {
       console.error('Status:', error.response.status);
       console.error('Data:', JSON.stringify(error.response.data, null, 2));

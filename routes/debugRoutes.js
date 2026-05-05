@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { getCurrentMatches } = require('../services/cricApi');
+const { getCurrentMatches } = require('../services/cricApi1');
 const formatMatch = require('../utils/formatMatch');
 const filterMatches = require('../utils/filterMatches');
 const {

@@ -14,6 +14,8 @@ const majorNations = [
   'West Indies',
   'Afghanistan',
   'Ireland',
+  'Zimbabwe',
+  'United Arab Emirates',
 ];
 
 /**
@@ -59,19 +61,19 @@ const filterMatches = (matches) => {
 
     const matchName = match.name.toLowerCase();
 
-    // ✅ TIER 1: Check if it's in a MAJOR LEAGUE
+    // TIER 1: Check if it's in a MAJOR LEAGUE
     const isInMajorLeague = majorLeagues.some(league =>
       matchName.includes(league.toLowerCase())
     );
     if (isInMajorLeague) return true;
 
-    // ✅ TIER 2: Check if it's a MAJOR TOURNAMENT
+    // TIER 2: Check if it's a MAJOR TOURNAMENT
     const isInMajorTournament = majorTournaments.some(tournament =>
       matchName.includes(tournament.toLowerCase())
     );
     if (isInMajorTournament) return true;
 
-    // ✅ TIER 3: Check if it's INTERNATIONAL between MAJOR NATIONS
+    // TIER 3: Check if it's INTERNATIONAL between MAJOR NATIONS
     // Count how many major nations are mentioned
     const majorNationsInMatch = majorNations.filter(nation =>
       matchName.includes(nation.toLowerCase())
