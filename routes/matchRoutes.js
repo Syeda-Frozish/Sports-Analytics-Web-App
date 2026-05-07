@@ -7,21 +7,24 @@ const formatMatch = require('../utils/formatMatch');
 const formatUpcomingMatch = require('../utils/formatUpcomingMatch');
 const filterMatches = require('../utils/filterMatches');
 const Match = require('../models/cricketMatch');
+const { setCache, getCache } = require('../utils/cache');
 
 
-// Live matches
+// Live matches (cache for 30 seconds)
 router.get('/live', async (req, res) => {
   try {
     const filterMode = req.query.filter === 'all' ? null : filterMatches;
-    
-    const matches = await getCurrentMatches();
+    const cacheKey = `live_${req.query.filter || 'major'}`;
+    const cached = getCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
+    const matches = await getCurrentMatches();
     if (!matches || matches.length === 0) {
-      return res.json({
-        count: 0,
-        filter: req.query.filter || 'major',
-        matches: [],
-      });
+      const response = { count: 0, filter: req.query.filter || 'major', matches: [] };
+      setCache(cacheKey, response, 30 * 1000);
+      return res.json(response);
     }
 
     const formattedMatches = matches
@@ -31,11 +34,13 @@ router.get('/live', async (req, res) => {
     const filteredMatches = filterMode ? filterMode(formattedMatches) : formattedMatches;
     const liveMatches = filteredMatches.filter(match => match.status === 'live' || (match.matchStarted && !match.matchEnded));
 
-    res.json({
+    const response = {
       count: liveMatches.length,
       filter: req.query.filter || 'major',
       matches: liveMatches,
-    });
+    };
+    setCache(cacheKey, response, 30 * 1000); // 30 seconds
+    res.json(response);
   } catch (err) {
     console.error('Error fetching live matches:', err);
     res.status(500).json({
@@ -83,19 +88,21 @@ router.get('/recent', async (req, res) => {
 });
 
 
-// Upcoming matches  
+// Upcoming matches (cache for 5 minutes)
 router.get('/upcoming', async (req, res) => {
   try {
     const filterMode = req.query.filter === 'all' ? null : filterMatches;
-    
-    const matches = await getUpcomingMatches();
+    const cacheKey = `upcoming_${req.query.filter || 'major'}`;
+    const cached = getCache(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
+    const matches = await getUpcomingMatches();
     if (!matches || matches.length === 0) {
-      return res.json({
-        count: 0,
-        filter: req.query.filter || 'major',
-        matches: [],
-      });
+      const response = { count: 0, filter: req.query.filter || 'major', matches: [] };
+      setCache(cacheKey, response, 5 * 60 * 1000);
+      return res.json(response);
     }
 
     const formattedMatches = matches
@@ -107,11 +114,13 @@ router.get('/upcoming', async (req, res) => {
       match => !match.matchStarted && !match.matchEnded
     );
 
-    res.json({
+    const response = {
       count: upcomingMatches.length,
       filter: req.query.filter || 'major',
       matches: upcomingMatches,
-    });
+    };
+    setCache(cacheKey, response, 5 * 60 * 1000); // 5 minutes
+    res.json(response);
   } catch (err) {
     console.error('Error fetching upcoming matches:', err);
     res.status(500).json({
@@ -159,44 +168,6 @@ router.post('/save-recent', async (req, res) => {
   }
 });
 
-
-// Save upcoming matches to database
-router.post('/save-upcoming', async (req, res) => {
-  try {
-    const matches = await getUpcomingMatches();
-
-    if (!matches || matches.length === 0) {
-      return res.json({
-        message: 'No upcoming matches available',
-        saved: 0,
-        failed: 0,
-      });
-    }
-
-    const formattedMatches = matches
-      .map(formatUpcomingMatch)
-      .filter(match => match !== null);
-
-    const filteredMatches = filterMatches(formattedMatches);
-    const upcomingMatches = filteredMatches.filter(
-      match => !match.matchStarted && !match.matchEnded
-    );
-
-    const { saveUpcomingMatches } = require('../utils/storeMatches');
-    const result = await saveUpcomingMatches(upcomingMatches);
-
-    res.json({
-      message: `Saved upcoming matches to database`,
-      total: upcomingMatches.length,
-      ...result,
-    });
-  } catch (err) {
-    console.error('Error saving upcoming matches:', err);
-    res.status(500).json({
-      error: err.message || 'Failed to save upcoming matches',
-    });
-  }
-});
 
 // Get database stats
 router.get('/stats', async (req, res) => {

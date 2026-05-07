@@ -179,7 +179,6 @@ const saveUpcomingMatches = async (upcomingMatches) => {
 
 module.exports = {
   saveRecentMatches,
-  saveUpcomingMatches,
   getRecentMatches,
   getUpcomingMatches,
   getLiveMatches,

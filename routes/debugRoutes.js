@@ -7,11 +7,39 @@ const formatMatch = require('../utils/formatMatch');
 const formatUpcomingMatch = require('../utils/formatUpcomingMatch');
 const filterMatches = require('../utils/filterMatches');
 const Match = require('../models/cricketMatch');
+const { setCache, getCache } = require('../utils/cache');
 const {
   analyzeApiResponse,
   analyzeFormattedMatches,
   analyzeFilteredMatches,
+  analyzeUpcomingMatchesApi,
+  compareApis,
+  recommendApiUsage,
 } = require('../utils/debugMatches');
+// Show cache status for live and upcoming endpoints
+router.get('/cache', (req, res) => {
+  const liveMajor = getCache('live_major');
+  const upcomingMajor = getCache('upcoming_major');
+  res.json({
+    live_major: liveMajor ? 'HIT' : 'MISS',
+    upcoming_major: upcomingMajor ? 'HIT' : 'MISS',
+    live_major_data: liveMajor,
+    upcoming_major_data: upcomingMajor,
+  });
+});
+
+// Show recent DB writes (recent matches)
+router.get('/cron-status', async (req, res) => {
+  try {
+    const recent = await Match.find({ matchEnded: true }).sort({ updatedAt: -1 }).limit(5);
+    res.json({
+      recentSaved: recent.length,
+      recent,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * DEBUG ENDPOINT - Test and troubleshoot the entire pipeline
@@ -20,49 +48,15 @@ const {
  */
 router.get('/analyze', async (req, res) => {
   try {
-    console.log('\n' + '█'.repeat(80));
-    console.log('🔍 MATCH SYSTEM DEBUG - Starting');
-    console.log('█'.repeat(80));
-
-    // Step 1: Get raw data from API
-    console.log('\n📡 STEP 1: Fetching data from CricAPI...');
     const rawMatches = await getCurrentMatches();
     analyzeApiResponse(rawMatches);
-
-    // Step 2: Format matches
-    console.log('🎨 STEP 2: Formatting matches...');
-    const formattedMatches = rawMatches
-      .map(formatMatch)
-      .filter(match => match !== null);
+    const formattedMatches = rawMatches.map(formatMatch).filter(match => match !== null);
     analyzeFormattedMatches(formattedMatches, rawMatches);
-
-    // Step 3: Filter for major matches
-    console.log('🎯 STEP 3: Filtering for major matches...');
     const filteredMatches = filterMatches(formattedMatches);
-
-    // Step 4: Categorize by status
-    console.log('📊 STEP 4: Categorizing by match status...');
-    const liveMatches = filteredMatches.filter(
-      match => match.status === 'live' || (match.matchStarted && !match.matchEnded)
-    );
+    const liveMatches = filteredMatches.filter(match => match.status === 'live' || (match.matchStarted && !match.matchEnded));
     const recentMatches = filteredMatches.filter(match => match.matchEnded);
-    const upcomingMatches = filteredMatches.filter(
-      match => !match.matchStarted && !match.matchEnded
-    );
-
-    analyzeFilteredMatches(
-      filteredMatches,
-      formattedMatches,
-      liveMatches,
-      recentMatches,
-      upcomingMatches
-    );
-
-    console.log('█'.repeat(80));
-    console.log('✅ DEBUG COMPLETE');
-    console.log('█'.repeat(80) + '\n');
-
-    // Return detailed response
+    const upcomingMatches = filteredMatches.filter(match => !match.matchStarted && !match.matchEnded);
+    analyzeFilteredMatches(filteredMatches, formattedMatches, liveMatches, recentMatches, upcomingMatches);
     res.json({
       summary: {
         apiMatches: rawMatches.length,
@@ -73,19 +67,17 @@ router.get('/analyze', async (req, res) => {
         recentMatches: recentMatches.length,
         upcomingMatches: upcomingMatches.length,
       },
-      rawSample: rawMatches.slice(0, 1),
-      formattedSample: formattedMatches.slice(0, 1),
-      filteredSample: filteredMatches.slice(0, 1),
-      live: liveMatches,
-      recent: recentMatches,
-      upcoming: upcomingMatches,
+      samples: {
+        raw: rawMatches.slice(0, 2),
+        formatted: formattedMatches.slice(0, 2),
+        filtered: filteredMatches.slice(0, 2),
+        live: liveMatches.slice(0, 2),
+        recent: recentMatches.slice(0, 2),
+        upcoming: upcomingMatches.slice(0, 2),
+      }
     });
   } catch (err) {
-    console.error('❌ Debug endpoint error:', err);
-    res.status(500).json({
-      error: err.message || 'Debug failed',
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    });
+    res.status(500).json({ error: err.message || 'Debug failed' });
   }
 });
 
@@ -94,44 +86,16 @@ router.get('/analyze', async (req, res) => {
 // Debug: Test OLD API
 router.get('/old-api', async (req, res) => {
   try {
-    const { getCurrentMatches } = require('../services/cricApi1');
-    const {
-      analyzeApiResponse,
-      analyzeFormattedMatches,
-      analyzeFilteredMatches,
-    } = require('../utils/debugMatches');
-    const formatMatch = require('../utils/formatMatch');
-    const filterMatches = require('../utils/filterMatches');
-
-    console.log('\n\n🔍 TESTING OLD API (currentMatches)\n');
-    
     const rawMatches = await getCurrentMatches();
     analyzeApiResponse(rawMatches);
-
-    const formattedMatches = rawMatches
-      .map(formatMatch)
-      .filter(match => match !== null);
+    const formattedMatches = rawMatches.map(formatMatch).filter(match => match !== null);
     analyzeFormattedMatches(formattedMatches, rawMatches);
-
     const filteredMatches = filterMatches(formattedMatches);
-    const liveMatches = filteredMatches.filter(
-      match => match.status === 'live' || (match.matchStarted && !match.matchEnded)
-    );
+    const liveMatches = filteredMatches.filter(match => match.status === 'live' || (match.matchStarted && !match.matchEnded));
     const recentMatches = filteredMatches.filter(match => match.matchEnded);
-    const upcomingMatches = filteredMatches.filter(
-      match => !match.matchStarted && !match.matchEnded
-    );
-
-    analyzeFilteredMatches(
-      filteredMatches,
-      formattedMatches,
-      liveMatches,
-      recentMatches,
-      upcomingMatches
-    );
-
+    const upcomingMatches = filteredMatches.filter(match => !match.matchStarted && !match.matchEnded);
+    analyzeFilteredMatches(filteredMatches, formattedMatches, liveMatches, recentMatches, upcomingMatches);
     res.json({
-      message: '✅ Debug output sent to server console',
       stats: {
         totalRaw: rawMatches.length,
         totalFormatted: formattedMatches.length,
@@ -140,6 +104,11 @@ router.get('/old-api', async (req, res) => {
         recent: recentMatches.length,
         upcoming: upcomingMatches.length,
       },
+      samples: {
+        raw: rawMatches.slice(0, 2),
+        formatted: formattedMatches.slice(0, 2),
+        filtered: filteredMatches.slice(0, 2),
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -149,44 +118,16 @@ router.get('/old-api', async (req, res) => {
 // Debug: Test NEW API
 router.get('/new-api', async (req, res) => {
   try {
-    const { getUpcomingMatches } = require('../services/cricApi2');
-    const {
-      analyzeUpcomingMatchesApi,
-      analyzeFormattedMatches,
-      analyzeFilteredMatches,
-    } = require('../utils/debugMatches');
-    const formatUpcomingMatch = require('../utils/formatUpcomingMatch');
-    const filterMatches = require('../utils/filterMatches');
-
-    console.log('\n\n🔍 TESTING NEW API (upcomingMatches)\n');
-    
     const rawMatches = await getUpcomingMatches();
     analyzeUpcomingMatchesApi(rawMatches);
-
-    const formattedMatches = rawMatches
-      .map(formatUpcomingMatch)
-      .filter(match => match !== null);
+    const formattedMatches = rawMatches.map(formatUpcomingMatch).filter(match => match !== null);
     analyzeFormattedMatches(formattedMatches, rawMatches);
-
     const filteredMatches = filterMatches(formattedMatches);
-    const liveMatches = filteredMatches.filter(
-      match => match.matchStarted && !match.matchEnded
-    );
+    const liveMatches = filteredMatches.filter(match => match.matchStarted && !match.matchEnded);
     const recentMatches = filteredMatches.filter(match => match.matchEnded);
-    const upcomingMatches = filteredMatches.filter(
-      match => !match.matchStarted && !match.matchEnded
-    );
-
-    analyzeFilteredMatches(
-      filteredMatches,
-      formattedMatches,
-      liveMatches,
-      recentMatches,
-      upcomingMatches
-    );
-
+    const upcomingMatches = filteredMatches.filter(match => !match.matchStarted && !match.matchEnded);
+    analyzeFilteredMatches(filteredMatches, formattedMatches, liveMatches, recentMatches, upcomingMatches);
     res.json({
-      message: '✅ Debug output sent to server console',
       stats: {
         totalRaw: rawMatches.length,
         totalFormatted: formattedMatches.length,
@@ -195,6 +136,11 @@ router.get('/new-api', async (req, res) => {
         recent: recentMatches.length,
         upcoming: upcomingMatches.length,
       },
+      samples: {
+        raw: rawMatches.slice(0, 2),
+        formatted: formattedMatches.slice(0, 2),
+        filtered: filteredMatches.slice(0, 2),
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -204,27 +150,19 @@ router.get('/new-api', async (req, res) => {
 // Debug: Compare both APIs
 router.get('/compare', async (req, res) => {
   try {
-    const { getCurrentMatches } = require('../services/cricApi1');
-    const { getUpcomingMatches } = require('../services/cricApi2');
-    const {
-      compareApis,
-      recommendApiUsage,
-    } = require('../utils/debugMatches');
-
-    console.log('\n\n🔍 COMPARING BOTH APIs\n');
-    
     const oldApiData = await getCurrentMatches();
     const newApiData = await getUpcomingMatches();
-
     compareApis(oldApiData, newApiData);
     recommendApiUsage();
-
     res.json({
-      message: '✅ Comparison output sent to server console',
       stats: {
         oldApiMatches: oldApiData.length,
         newApiMatches: newApiData.length,
       },
+      samples: {
+        oldApi: oldApiData.slice(0, 2),
+        newApi: newApiData.slice(0, 2),
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
