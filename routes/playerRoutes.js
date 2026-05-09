@@ -1,11 +1,8 @@
 const express = require('express');
 const router = express.Router();
-<<<<<<< HEAD
-const Player = require('../models/Player');
-=======
+
 const Player = require('../models/cricketPlayers');
 const FPlayer = require('../models/fPlayer');
->>>>>>> 8c84ccc810bfb2e46de97aba7283b7f62126cfdb
 
 // ADD PLAYER
 router.post('/add', async (req, res) => {
@@ -18,9 +15,6 @@ router.post('/add', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-module.exports = router;
-=======
 /** 
  * GET /api/players
  * Players directory with filtering/search/pagination
@@ -38,7 +32,6 @@ router.get('/', async (req, res) => {
     if (req.query.gender) filter.gender = req.query.gender;
     if (req.query.battingStyle) filter.battingStyle = req.query.battingStyle;
 
-    // bowlingStyle can be literal 'null' from frontend
     if (req.query.bowlingStyle && req.query.bowlingStyle !== 'null') {
       filter.bowlingStyle = req.query.bowlingStyle;
     } else if (req.query.bowlingStyle === 'null') {
@@ -99,7 +92,6 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/players/filters
- * Distinct values for dropdowns and classification UI
  */
 router.get('/filters', async (req, res) => {
   try {
@@ -110,7 +102,6 @@ router.get('/filters', async (req, res) => {
         Player.distinct('bowlingStyle'),
         Player.distinct('position'),
         Player.distinct('country.continent'),
-        // countries is a projection of nested country fields
         Player.aggregate([
           {
             $group: {
@@ -217,97 +208,14 @@ router.get('/continents/:continent/players', async (req, res) => {
   }
 });
 
-/**
- * Classification-style routes (batters/bowlers + by style + by position)
- * These are just convenience endpoints that wrap filtering logic.
- */
-
-// GET /api/players/positions/:position/players
-router.get('/positions/:position/players', async (req, res) => {
-  try {
-    const position = req.params.position;
-    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
-    const skip = (page - 1) * limit;
-
-    const q = { position };
-
-    const [count, players] = await Promise.all([
-      Player.countDocuments(q),
-      Player.find(q)
-        .sort({ playerId: 1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-__v'),
-    ]);
-
-    res.json({ count, page, limit, players });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/players/batting-styles/:style/players
-router.get('/batting-styles/:style/players', async (req, res) => {
-  try {
-    const style = req.params.style;
-    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
-    const skip = (page - 1) * limit;
-
-    const q = { battingStyle: style };
-
-    const [count, players] = await Promise.all([
-      Player.countDocuments(q),
-      Player.find(q)
-        .sort({ playerId: 1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-__v'),
-    ]);
-
-    res.json({ count, page, limit, players });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/players/bowling-styles/:style/players
-router.get('/bowling-styles/:style/players', async (req, res) => {
-  try {
-    const style = req.params.style;
-    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
-    const skip = (page - 1) * limit;
-
-    const q = { bowlingStyle: style };
-
-    const [count, players] = await Promise.all([
-      Player.countDocuments(q),
-      Player.find(q)
-        .sort({ playerId: 1 })
-        .skip(skip)
-        .limit(limit)
-        .select('-__v'),
-    ]);
-
-    res.json({ count, page, limit, players });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/players/batters (convenience by position string)
+// Batters
 router.get('/batters', async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
 
-    // If your dataset uses exactly these position values, this will work.
-    // Common options: "Batsman", "Batter"
     const positions = ['Batsman', 'Batter'];
-
     const q = { position: { $in: positions } };
 
     const [count, players] = await Promise.all([
@@ -325,15 +233,14 @@ router.get('/batters', async (req, res) => {
   }
 });
 
-// GET /api/players/bowlers (convenience by position string)
+// Bowlers
 router.get('/bowlers', async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
     const skip = (page - 1) * limit;
 
-    const positions = ['Bowler'];
-    const q = { position: { $in: positions } };
+    const q = { position: { $in: ['Bowler'] } };
 
     const [count, players] = await Promise.all([
       Player.countDocuments(q),
@@ -350,19 +257,14 @@ router.get('/bowlers', async (req, res) => {
   }
 });
 
-/**
- * GET /api/players/featured
- * Fetch featured players defined in the f_players collection
- */
+// Featured players
 router.get('/featured', async (req, res) => {
   try {
     const fPlayers = await FPlayer.find({});
     const playerIds = fPlayers.map(fp => fp.playerId);
 
-    // Fetch matching players
     const players = await Player.find({ playerId: { $in: playerIds } }).select('-__v');
 
-    // Preserve the exact order from f_players
     const orderedPlayers = playerIds
       .map(id => players.find(p => p.playerId === id))
       .filter(Boolean);
@@ -373,12 +275,8 @@ router.get('/featured', async (req, res) => {
   }
 });
 
-/**
- * GET /api/players/:playerId
- * Must be LAST to avoid matching other specific routes like /filters, /countries, etc.
- */
-router.get('/id/:playerId', async (req, res) => { // player detail
-
+// Player by ID (LAST ROUTE)
+router.get('/id/:playerId', async (req, res) => {
   try {
     const playerId = parseInt(req.params.playerId, 10);
     if (Number.isNaN(playerId)) {
@@ -397,6 +295,3 @@ router.get('/id/:playerId', async (req, res) => { // player detail
 });
 
 module.exports = router;
-
-
->>>>>>> 8c84ccc810bfb2e46de97aba7283b7f62126cfdb
