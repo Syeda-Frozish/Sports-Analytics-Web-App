@@ -148,6 +148,11 @@ const formatUpcomingMatch = (match) => {
       
       // Additional fields from new API
       series: match.series || null,
+
+      // Some series APIs provide a seriesId; if your upstream payload includes it,
+      // capture it here.
+      seriesId: match.seriesId || match.series_id || match.seriesIdStr || null,
+
       rawStatus: match.status || null, // Human-readable status from API
     };
   } catch (error) {

@@ -19,6 +19,12 @@ const saveRecentMatches = async (recentMatches) => {
   let failed = 0;
   const errors = [];
 
+  const { getSeriesById } = require('../services/cricSeriesApi');
+  const { normalizeSeries } = require('./formatSeries');
+
+  // Simple in-memory cache to avoid calling the same seriesId multiple times in one run.
+  const seriesCache = new Map();
+
   for (const match of recentMatches) {
     try {
       // Use updateOne with upsert to prevent duplicate key errors
@@ -36,12 +42,43 @@ const saveRecentMatches = async (recentMatches) => {
           score: match.score,
           matchStarted: match.matchStarted,
           matchEnded: match.matchEnded,
+
+          // Series enrichment (optional)
+          seriesId: match.seriesId || null,
+          series: (() => {
+            // Note: This is replaced below by enrichment result.
+            return match.series || null;
+          })(),
         },
         { upsert: true }
       );
       
       if (result.modifiedCount > 0 || result.upsertedCount > 0) {
         saved++;
+      }
+
+      // Enrich series after successful upsert (or even before, but keep it simple).
+      // If seriesId is present, fetch series info and update doc.
+      if (match.seriesId) {
+        const seriesId = String(match.seriesId);
+        let cached = seriesCache.get(seriesId);
+        if (cached === undefined) {
+          const rawSeries = await getSeriesById(seriesId);
+          cached = normalizeSeries(rawSeries);
+          seriesCache.set(seriesId, cached);
+        }
+
+        if (cached) {
+          await Match.updateOne(
+            { matchId: match.id },
+            {
+              $set: {
+                seriesId,
+                series: cached,
+              },
+            }
+          );
+        }
       }
     } catch (err) {
       failed++;

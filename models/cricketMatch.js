@@ -43,6 +43,28 @@ const matchSchema = new mongoose.Schema({
 
   matchEnded: Boolean,
 
+  // Series enrichment (from separate series-by-id API)
+  seriesId: {
+    type: String,
+    index: true,
+    default: null,
+  },
+
+  series: {
+    type: {
+      seriesId: { type: String, default: null },
+      name: { type: String, default: null },
+      startDate: { type: String, default: null },
+      endDate: { type: String, default: null },
+      odi: { type: Number, default: null },
+      t20: { type: Number, default: null },
+      test: { type: Number, default: null },
+      squads: { type: Number, default: null },
+      matches: { type: Number, default: null },
+    },
+    default: null,
+  },
+
 }, {
   timestamps: true,
 });

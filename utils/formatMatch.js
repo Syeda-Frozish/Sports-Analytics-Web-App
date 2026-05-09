@@ -37,6 +37,10 @@ const formatMatch = (match) => {
 
       matchStarted: match.matchStarted || false,
       matchEnded: match.matchEnded || false,
+
+      // If older API also returns a series identifier, preserve it.
+      series: match.series || null,
+      seriesId: match.seriesId || match.series_id || null,
     };
   } catch (error) {
     console.error('Error formatting match:', error);
