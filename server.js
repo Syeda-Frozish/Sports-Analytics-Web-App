@@ -23,12 +23,12 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
-/*
+
 // Routes
 app.use('/api/matches', matchRoutes); // cricket matches; live, recent, upcoming
 app.use('/api/players', playerRoutes); // cricket players
 app.use('/api/series', seriesRoutes); // cricket series; upcoming + details
-
+/*
 // Tennis routes
 app.use('/api/tennis/fixtures', tennisFixtures); // tennis fixtures; today, date, range, tournament, player
 app.use('/api/tennis/players', tennisPlayers); // tennis players; profile, matches, stats, surface, titles, finals
