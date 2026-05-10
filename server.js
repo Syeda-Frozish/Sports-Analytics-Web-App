@@ -28,13 +28,13 @@ app.use(express.json());
 app.use('/api/matches', matchRoutes); // cricket matches; live, recent, upcoming
 app.use('/api/players', playerRoutes); // cricket players
 app.use('/api/series', seriesRoutes); // cricket series; upcoming + details
-/*
+
 // Tennis routes
 app.use('/api/tennis/fixtures', tennisFixtures); // tennis fixtures; today, date, range, tournament, player
 app.use('/api/tennis/players', tennisPlayers); // tennis players; profile, matches, stats, surface, titles, finals
 app.use('/api/tennis/tournaments', tennisTournaments); // tennis tournaments; calendar, info, seasons, champions, results
 app.use('/api/tennis/rankings', tennisRankings); // tennis rankings; singles, doubles, race
-
+/*
 // Debug routes (optional - for development/troubleshooting)
 app.use('/api/debug', debugRoutes);
 app.use('/api/tennis/debug', tennisDebugRoutes);
