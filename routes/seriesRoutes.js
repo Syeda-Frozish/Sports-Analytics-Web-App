@@ -4,7 +4,9 @@ const router = express.Router();
 const { getSeriesById } = require('../services/cricSeriesApi');
 const { getUpcomingSeries } = require('../services/cricUpcomingSeriesApi');
 const { normalizeSeries } = require('../utils/formatSeries');
-const Series = require('../models/cricketSeries');
+
+const seriesCache = new Map();
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 // GET /api/series/upcoming
 router.get('/upcoming', async (req, res) => {
@@ -101,6 +103,13 @@ router.get('/:seriesId', async (req, res) => {
     const { seriesId } = req.params;
     console.log('[Route] Fetching series:', seriesId);
 
+    // Check in-memory cache first
+    const cachedItem = seriesCache.get(seriesId);
+    if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_DURATION_MS)) {
+      console.log('[Cache] Using in-memory cache for series:', seriesId);
+      return res.json({ series: cachedItem.data });
+    }
+
     const data = await getSeriesById(seriesId);
     console.log('[Route] Got data:', !!data, Object.keys(data || {}));
 
@@ -126,8 +135,11 @@ router.get('/:seriesId', async (req, res) => {
     console.log('[Route] Normalized keys:', Object.keys(normalized));
     console.log('[Route] Normalized.matchList:', normalized.matchList ? `${normalized.matchList.length}` : 'undefined');
 
-    // Save series to DB with matchList
-    await Series.updateOne({ seriesId: normalized.seriesId }, normalized, { upsert: true });
+    // Save to in-memory cache
+    seriesCache.set(seriesId, {
+      data: normalized,
+      timestamp: Date.now()
+    });
 
     console.log('[Route] Sending response with keys:', Object.keys(normalized));
     res.json({ series: normalized });

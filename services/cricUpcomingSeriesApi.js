@@ -9,10 +9,23 @@ const API_KEY = process.env.CRICKET_API_KEY;
 // CricAPI endpoint for listing series
 const UPCOMING_SERIES_PATH = '/series';
 
+let upcomingSeriesCache = {
+  data: null,
+  timestamp: null,
+};
+
+const CACHE_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+
 const getUpcomingSeries = async (searchStr = '') => {
   try {
     if (!API_KEY) {
       throw new Error('CRICKET_API_KEY environment variable is not set');
+    }
+
+    // Use cache if available, valid, and no search string is provided
+    if (!searchStr && upcomingSeriesCache.data && upcomingSeriesCache.timestamp && (Date.now() - upcomingSeriesCache.timestamp < CACHE_DURATION_MS)) {
+      console.log('[Cache] Using cached upcoming series');
+      return upcomingSeriesCache.data;
     }
 
     let allSeries = [];
@@ -37,6 +50,14 @@ const getUpcomingSeries = async (searchStr = '') => {
       if (!data || data.length < 25) {
         break;
       }
+    }
+
+    // Cache the result if there's no search string
+    if (!searchStr) {
+      upcomingSeriesCache = {
+        data: allSeries,
+        timestamp: Date.now(),
+      };
     }
 
     return allSeries;
